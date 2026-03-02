@@ -183,13 +183,29 @@ def convert_dataset_to_data(dataset_root):
         alpha=0
     )
 
-    # Apply rectification maps
+    # Apply rectification maps # TODO: Save P1 and P2 for later use 
     left_map1, left_map2 = cv2.initUndistortRectifyMap(
         K_l, dist_l, R1, P1, image_size, cv2.CV_16SC2
     )
     right_map1, right_map2 = cv2.initUndistortRectifyMap(
         K_r, dist_r, R2, P2, image_size, cv2.CV_16SC2
     )
+
+    # Save projection matrices
+    P_l = P1.copy()
+    P_r = P2.copy()
+    P_r[0, 3] *= 1e-03
+    rectified_params = {
+        "P_l": P_l.flatten().tolist(),
+        "P_r": P_r.flatten().tolist(),
+    }
+
+    camera_proj_path = os.path.join(data_folder, 'rectified_camera_projections.yaml')
+
+    with open(camera_proj_path, "w") as f:
+        yaml.dump(rectified_params, f)
+
+    print("[LOG] Saved rectified camera parameters.")
 
     # Process images
     for lf, rf in zip(left_files, right_files):

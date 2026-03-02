@@ -12,5 +12,5 @@ part_nr: 1
 # Data to record
 # --------------------------------------------------------------
 save_images: True
-save_imu: True
-save_gt: True
+save_imu: False
+save_gt: False

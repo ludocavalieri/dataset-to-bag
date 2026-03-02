@@ -50,6 +50,15 @@ def extract_timestamp_from_filename(filename):
 def format_list(data):
     return "[ " + ", ".join(f"{float(x):.16e}" for x in data) + " ]"
 
+# Build timestamp dictionary
+def build_timestamp_dict(image_list):
+        d = {}
+        for path in image_list:
+            ts = timestamp_to_nanoseconds(
+                extract_timestamp_from_filename(os.path.basename(path)))
+            d[ts] = path
+        return d
+
 # Save camera info
 def save_camera_info_yaml(output_path, camera_name, width, height, K, D, R, P, distortion_model):
     # Flatten nested lists
@@ -113,7 +122,13 @@ def convert_data_to_bag(save_images, save_imu, save_gt, bag_name='katwijck_bag')
     right_dir = os.path.join(data_dir, 'right-images')
     left_images = sorted([os.path.join(left_dir, f) for f in os.listdir(left_dir) if f.endswith('.png')])
     right_images = sorted([os.path.join(right_dir, f) for f in os.listdir(right_dir) if f.endswith('.png')])
-    img_files = list(zip(left_images, right_images))  # pair images
+
+    left_dict = build_timestamp_dict(left_images)
+    right_dict = build_timestamp_dict(right_images)
+
+    common_timestamps = sorted(set(left_dict.keys()) & set(right_dict.keys()))
+
+    img_files = [(left_dict[t], right_dict[t], t) for t in common_timestamps]
 
     # Get IMU data
     imu_data = []
@@ -152,8 +167,13 @@ def convert_data_to_bag(save_images, save_imu, save_gt, bag_name='katwijck_bag')
 
     # Camera parameters 
     camera_params_path = os.path.join(config_dir, 'camera_params.yaml') 
+    camera_projections_path = os.path.join(data_dir, 'rectified_camera_projections.yaml') 
+    
     with open(camera_params_path, "r") as yamlfile:
         parameters = yaml.load(yamlfile, Loader=yaml.FullLoader)
+
+    with open(camera_projections_path, "r") as yamlfile:
+        projections = yaml.load(yamlfile, Loader=yaml.FullLoader)
 
     width = parameters['w']
     height = parameters['h']
@@ -161,12 +181,12 @@ def convert_data_to_bag(save_images, save_imu, save_gt, bag_name='katwijck_bag')
     K_l = parameters['K_l']
     K_r = parameters['K_r']
 
-    P_l = parameters['P_l']
-    P_r = parameters['P_r']
+    P_l = projections['P_l']
+    P_r = projections['P_r']
 
     distortion_model = parameters['dist_model']
-    dist_l = parameters['dist_l']
-    dist_r = parameters['dist_r']
+    dist_l = np.zeros((1, 4))
+    dist_r = np.zeros((1, 4))
 
     R = np.eye(3)
 
@@ -213,12 +233,7 @@ def convert_data_to_bag(save_images, save_imu, save_gt, bag_name='katwijck_bag')
         ))
 
         # Iterate over image pairs
-        for left_path, right_path in img_files: 
-            # Read timestamp from image file
-            filename = os.path.basename(left_path)
-            timestamp_str = extract_timestamp_from_filename(filename)
-            timestamp = timestamp_to_nanoseconds(timestamp_str)
-
+        for left_path, right_path, timestamp in img_files: 
             # Read images
             left_img = cv2.imread(left_path, cv2.IMREAD_COLOR)
             right_img = cv2.imread(right_path, cv2.IMREAD_COLOR)
