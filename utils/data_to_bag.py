@@ -6,9 +6,10 @@ import csv
 import numpy as np
 from datetime import datetime
 import re
+import shutil
 
 # ROS-related imports
-from sensor_msgs.msg import Image, Imu
+from sensor_msgs.msg import Image, Imu, CompressedImage
 from nav_msgs.msg import Odometry
 from std_msgs.msg import Header
 from builtin_interfaces.msg import Time
@@ -103,8 +104,7 @@ def save_camera_info_yaml(output_path, camera_name, width, height, K, D, R, P, d
 # ===========================================================
 #                        BAG CREATOR
 # ===========================================================
-# TODO: Make more efficient depending on data to download
-def convert_data_to_bag(save_images, save_imu, save_gt, bag_name='katwijck_bag'):
+def convert_data_to_bag(save_images, save_imu, save_gt, compressed=False, bag_name='katwijk_bag'):
     # -------------------------------------------------------
     #                    INITIALIZATION
     # -------------------------------------------------------
@@ -113,13 +113,14 @@ def convert_data_to_bag(save_images, save_imu, save_gt, bag_name='katwijck_bag')
     data_dir = os.path.join(directory, 'data')
     config_dir = os.path.join(directory, 'config')
     output_dir = os.path.join(directory, 'output')
+    processed_data_dir = os.path.join(data_dir, 'processed-data')
 
     # Output paths
     output_bag = os.path.join(output_dir, bag_name)
 
     # Get image files
-    left_dir = os.path.join(data_dir, 'left-images')
-    right_dir = os.path.join(data_dir, 'right-images')
+    left_dir = os.path.join(processed_data_dir, 'left-images')
+    right_dir = os.path.join(processed_data_dir, 'right-images')
     left_images = sorted([os.path.join(left_dir, f) for f in os.listdir(left_dir) if f.endswith('.png')])
     right_images = sorted([os.path.join(right_dir, f) for f in os.listdir(right_dir) if f.endswith('.png')])
 
@@ -132,7 +133,7 @@ def convert_data_to_bag(save_images, save_imu, save_gt, bag_name='katwijck_bag')
 
     # Get IMU data
     imu_data = []
-    imu_data_file = os.path.join(data_dir, 'imu.csv')
+    imu_data_file = os.path.join(processed_data_dir, 'imu.csv')
     with open(imu_data_file, newline='') as csvfile:
         reader = csv.reader(csvfile, delimiter=',')
         next(reader)  # Skip header
@@ -151,7 +152,7 @@ def convert_data_to_bag(save_images, save_imu, save_gt, bag_name='katwijck_bag')
 
     # Get GT 
     gps_data = []
-    gps_data_file = os.path.join(data_dir, 'gps.csv')
+    gps_data_file = os.path.join(processed_data_dir, 'gps.csv')
     with open(gps_data_file, newline='') as csvfile:
         reader = csv.reader(csvfile, delimiter=',')
         next(reader)  # Skip header
@@ -167,7 +168,7 @@ def convert_data_to_bag(save_images, save_imu, save_gt, bag_name='katwijck_bag')
 
     # Camera parameters 
     camera_params_path = os.path.join(config_dir, 'camera_params.yaml') 
-    camera_projections_path = os.path.join(data_dir, 'rectified_camera_projections.yaml') 
+    camera_projections_path = os.path.join(processed_data_dir, 'rectified_camera_projections.yaml') 
     
     with open(camera_params_path, "r") as yamlfile:
         parameters = yaml.load(yamlfile, Loader=yaml.FullLoader)
@@ -207,6 +208,8 @@ def convert_data_to_bag(save_images, save_imu, save_gt, bag_name='katwijck_bag')
     # Output path
     output_dir = os.path.join(directory, 'output')
     output_bag = os.path.join(output_dir, bag_name)
+    if os.path.exists(output_bag):
+        shutil.rmtree(output_bag)
 
     # Set up ROS2 bag writer
     storage_options = StorageOptions(uri=output_bag, storage_id='sqlite3')
@@ -221,26 +224,34 @@ def convert_data_to_bag(save_images, save_imu, save_gt, bag_name='katwijck_bag')
     # -------------------------------------------------------
     if save_images:
         # Create topics 
-        writer.create_topic(TopicMetadata(
-            name='/left/image_rect',
-            type='sensor_msgs/msg/Image',
-            serialization_format='cdr'
-        ))
-        writer.create_topic(TopicMetadata(
-            name='/right/image_rect',
-            type='sensor_msgs/msg/Image',
-            serialization_format='cdr'
-        ))
+        if compressed:
+            writer.create_topic(TopicMetadata(
+                name='/left/image_rect/compressed',
+                type='sensor_msgs/msg/CompressedImage',
+                serialization_format='cdr'
+            ))
+            writer.create_topic(TopicMetadata(
+                name='/right/image_rect/compressed',
+                type='sensor_msgs/msg/CompressedImage',
+                serialization_format='cdr'
+            ))
+        else: 
+            writer.create_topic(TopicMetadata(
+                name='/left/image_rect',
+                type='sensor_msgs/msg/Image',
+                serialization_format='cdr'
+            ))
+            writer.create_topic(TopicMetadata(
+                name='/right/image_rect',
+                type='sensor_msgs/msg/Image',
+                serialization_format='cdr'
+            ))
 
         # Iterate over image pairs
         for left_path, right_path, timestamp in img_files: 
             # Read images
             left_img = cv2.imread(left_path, cv2.IMREAD_COLOR)
             right_img = cv2.imread(right_path, cv2.IMREAD_COLOR)
-
-            # Convert to bytes
-            left_bytes = left_img.tobytes()
-            right_bytes = right_img.tobytes()
 
             # Headers
             left_header = Header(stamp=Time(sec=int(timestamp // 1e9), nanosec=int(timestamp % 1e9)),
@@ -249,16 +260,29 @@ def convert_data_to_bag(save_images, save_imu, save_gt, bag_name='katwijck_bag')
                                 frame_id='right_camera')
 
             # Image messages
-            left_msg = Image(header=left_header, height=height, width=width,
-                            encoding='bgr8', is_bigendian=0, step=width*3, data=left_bytes)
-            right_msg = Image(header=right_header, height=height, width=width,
-                            encoding='bgr8', is_bigendian=0, step=width*3, data=right_bytes)
+            if compressed:
+                # Encode as JPEG 
+                _, left_encoded = cv2.imencode('.jpg', left_img, [int(cv2.IMWRITE_JPEG_QUALITY), 90])
+                _, right_encoded = cv2.imencode('.jpg', right_img, [int(cv2.IMWRITE_JPEG_QUALITY), 90])
 
-    
-            # Write to bag
-            writer.write('/left/image_rect', serialize_message(left_msg), timestamp)
-            writer.write('/right/image_rect', serialize_message(right_msg), timestamp)
+                # Create messages
+                left_msg = CompressedImage(header=left_header, format='jpeg', data=left_encoded.tobytes())
+                right_msg = CompressedImage(header=right_header, format='jpeg', data=right_encoded.tobytes())
             
+                # Write to bag
+                writer.write('/left/image_rect/compressed', serialize_message(left_msg), timestamp)
+                writer.write('/right/image_rect/compressed', serialize_message(right_msg), timestamp)
+            else: 
+                # Create messages
+                left_msg = Image(header=left_header, height=height, width=width,
+                                encoding='bgr8', is_bigendian=0, step=width*3, data=left_img.tobytes())
+                right_msg = Image(header=right_header, height=height, width=width,
+                                encoding='bgr8', is_bigendian=0, step=width*3, data=right_img.tobytes())
+                
+                # Write to bag
+                writer.write('/left/image_rect', serialize_message(left_msg), timestamp)
+                writer.write('/right/image_rect', serialize_message(right_msg), timestamp)  
+               
     # -------------------------------------------------------
     # IMU
     # -------------------------------------------------------
@@ -323,4 +347,4 @@ def convert_data_to_bag(save_images, save_imu, save_gt, bag_name='katwijck_bag')
             writer.write('/ground_truth', serialize_message(gt_msg), timestamp)
 
     # Final message
-    print(f'[LOG] Bag created with name {bag_name}.')
+    print('\033[92m' + f'\n[LOG] Bag created with name {bag_name}.' + '\033[0m')

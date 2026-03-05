@@ -66,6 +66,11 @@ def convert_dataset_to_data(dataset_root):
     data_folder = os.path.join(directory, 'data')
     config_folder = os.path.join(directory, 'config')
 
+    # Create directory for storing processed data
+    processed_data_folder = os.path.join(data_folder, 'processed-data')
+    if not os.path.exists(processed_data_folder):
+        os.mkdir(processed_data_folder)
+
     # ----------------------------------------------------------
     # GPS AND IMU DATA
     # ----------------------------------------------------------
@@ -132,8 +137,8 @@ def convert_dataset_to_data(dataset_root):
     )
 
     # Save CSV
-    gps_df.to_csv(os.path.join(data_folder, "gps.csv"), index=False)
-    imu_df.to_csv(os.path.join(data_folder, "imu.csv"), index=False)
+    gps_df.to_csv(os.path.join(processed_data_folder, "gps.csv"), index=False)
+    imu_df.to_csv(os.path.join(processed_data_folder, "imu.csv"), index=False)
 
     print("\n[LOG] GPS and IMU CSV files created.")
 
@@ -141,8 +146,8 @@ def convert_dataset_to_data(dataset_root):
     # GPS AND IMU DATA
     # ----------------------------------------------------------
     # Create image folders
-    left_out = os.path.join(data_folder, "left-images")
-    right_out = os.path.join(data_folder, "right-images")
+    left_out = os.path.join(processed_data_folder, "left-images")
+    right_out = os.path.join(processed_data_folder, "right-images")
     os.makedirs(left_out, exist_ok=True)
     os.makedirs(right_out, exist_ok=True)
 
@@ -200,7 +205,7 @@ def convert_dataset_to_data(dataset_root):
         "P_r": P_r.flatten().tolist(),
     }
 
-    camera_proj_path = os.path.join(data_folder, 'rectified_camera_projections.yaml')
+    camera_proj_path = os.path.join(processed_data_folder, 'rectified_camera_projections.yaml')
 
     with open(camera_proj_path, "w") as f:
         yaml.dump(rectified_params, f)

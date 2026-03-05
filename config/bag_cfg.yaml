@@ -1,16 +1,32 @@
+# ==============================================================
+#                    BAG CONFIGURATION
+# ==============================================================
 # --------------------------------------------------------------
 # Choose bag name
 # --------------------------------------------------------------
-bag_name: 
+# Bag name can be undeclared, in which case the created bag will be named katwijk_bag
+bag_name: katwijk-1
 
 # --------------------------------------------------------------
 # Path section to download
 # --------------------------------------------------------------
+# Make sure the part number and url match
+dataset_url: "https://roboshare.esa.int/index.php/s/abDQEmi8Yjv9fhP/download"
 part_nr: 1
 
 # --------------------------------------------------------------
 # Data to record
 # --------------------------------------------------------------
-save_images: True
-save_imu: False
-save_gt: False
+# Select topics to publish
+save_images: True    # Left and right LocCam images
+save_imu: True       # IMU measurements
+save_gt: False       # GPS-based trajectory reconstruction
+
+# Image processing
+compressed: True     # Publish images as CompressedImage messages, reduces data volume 
+
+# --------------------------------------------------------------
+# Clean dataset root
+# --------------------------------------------------------------
+# Remove extracted data
+clean_root: False

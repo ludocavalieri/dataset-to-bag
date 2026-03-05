@@ -20,11 +20,6 @@ directory = os.path.dirname(os.path.abspath(__file__))
 bag_config_path = os.path.join(directory, 'config', 'bag_cfg.yaml')
 camera_params_path = os.path.join(directory, 'config', 'camera_params.yaml') 
 
-# Build paths to data files
-data_folder = os.path.join(directory, "data")
-dataset_root = os.path.join(data_folder, "Part1")
-tar_path = os.path.join(data_folder, "dataset.tar")
-
 # Read config file
 with open(bag_config_path, "r") as yamlfile:
         parameters = yaml.load(yamlfile, Loader=yaml.FullLoader)
@@ -34,9 +29,15 @@ save_images = parameters['save_images']
 save_imu = parameters['save_imu']
 save_gt = parameters['save_gt']
 bag_name = parameters['bag_name'] 
+compressed = parameters['compressed']
+dataset_url = parameters['dataset_url']
+part_nr = parameters['part_nr']
+clean_root = parameters['clean_root']
 
-# Url to dataset #! Update so that user can select which file to download
-dataset_url = "https://roboshare.esa.int/index.php/s/abDQEmi8Yjv9fhP/download"
+# Build paths to data files
+data_folder = os.path.join(directory, "data")
+dataset_root = os.path.join(data_folder, f"Part{part_nr}")
+tar_path = os.path.join(data_folder, "dataset.tar")
 
 # ==========================================================
 #                     DATASET DOWNLOAD
@@ -94,13 +95,11 @@ convert_dataset_to_data(dataset_root)
 #                    BAG CONVERSION   
 # ==========================================================
 # Remove dataset root (optional)
-shutil.rmtree(dataset_root)
+if clean_root:
+    shutil.rmtree(dataset_root)
 
 # Convert to bag 
 if bag_name is not None:
-    convert_data_to_bag(save_images, save_imu, save_gt, bag_name)
+    convert_data_to_bag(save_images, save_imu, save_gt, compressed, bag_name)
 else:
-    convert_data_to_bag(save_images, save_imu, save_gt)
-
-# Create static tf file
-# TODO
+    convert_data_to_bag(save_images, save_imu, save_gt, compressed)
