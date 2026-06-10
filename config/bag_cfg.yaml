@@ -23,7 +23,8 @@ save_imu: True       # IMU measurements
 save_gt: False       # GPS-based trajectory reconstruction
 
 # Image processing
-compressed: True     # Publish images as CompressedImage messages, reduces data volume 
+compressed: True     # Publish images as CompressedImage messages, reduces data volume
+rgb: True           # Save uncompressed images as RGB (rgb8) instead of BGR (bgr8); no effect when compressed is True
 
 # --------------------------------------------------------------
 # Clean dataset root

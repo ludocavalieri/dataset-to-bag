@@ -30,6 +30,7 @@ save_imu = parameters['save_imu']
 save_gt = parameters['save_gt']
 bag_name = parameters['bag_name'] 
 compressed = parameters['compressed']
+rgb = parameters['rgb']
 dataset_url = parameters['dataset_url']
 part_nr = parameters['part_nr']
 clean_root = parameters['clean_root']
@@ -89,7 +90,7 @@ else:
 #                    DATA PROCESSING
 # ==========================================================
 # Populate data folder 
-convert_dataset_to_data(dataset_root)
+convert_dataset_to_data(dataset_root, rgb)
 
 # ==========================================================
 #                    BAG CONVERSION   
@@ -100,6 +101,6 @@ if clean_root:
 
 # Convert to bag 
 if bag_name is not None:
-    convert_data_to_bag(save_images, save_imu, save_gt, compressed, bag_name)
+    convert_data_to_bag(save_images, save_imu, save_gt, compressed, rgb, bag_name)
 else:
-    convert_data_to_bag(save_images, save_imu, save_gt, compressed)
+    convert_data_to_bag(save_images, save_imu, save_gt, compressed, rgb)

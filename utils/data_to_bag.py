@@ -104,7 +104,7 @@ def save_camera_info_yaml(output_path, camera_name, width, height, K, D, R, P, d
 # ===========================================================
 #                        BAG CREATOR
 # ===========================================================
-def convert_data_to_bag(save_images, save_imu, save_gt, compressed=False, bag_name='katwijk_bag'):
+def convert_data_to_bag(save_images, save_imu, save_gt, compressed=False, rgb=False, bag_name='katwijk_bag'):
     # -------------------------------------------------------
     #                    INITIALIZATION
     # -------------------------------------------------------
@@ -253,6 +253,10 @@ def convert_data_to_bag(save_images, save_imu, save_gt, compressed=False, bag_na
             left_img = cv2.imread(left_path, cv2.IMREAD_COLOR)
             right_img = cv2.imread(right_path, cv2.IMREAD_COLOR)
 
+            if rgb and not compressed:
+                left_img = cv2.cvtColor(left_img, cv2.COLOR_BGR2RGB)
+                right_img = cv2.cvtColor(right_img, cv2.COLOR_BGR2RGB)
+
             # Headers
             left_header = Header(stamp=Time(sec=int(timestamp // 1e9), nanosec=int(timestamp % 1e9)),
                                 frame_id='left_camera')
@@ -274,10 +278,11 @@ def convert_data_to_bag(save_images, save_imu, save_gt, compressed=False, bag_na
                 writer.write('/right/image_rect/compressed', serialize_message(right_msg), timestamp)
             else: 
                 # Create messages
+                encoding = 'rgb8' if rgb else 'bgr8'
                 left_msg = Image(header=left_header, height=height, width=width,
-                                encoding='bgr8', is_bigendian=0, step=width*3, data=left_img.tobytes())
+                                encoding=encoding, is_bigendian=0, step=width*3, data=left_img.tobytes())
                 right_msg = Image(header=right_header, height=height, width=width,
-                                encoding='bgr8', is_bigendian=0, step=width*3, data=right_img.tobytes())
+                                encoding=encoding, is_bigendian=0, step=width*3, data=right_img.tobytes())
                 
                 # Write to bag
                 writer.write('/left/image_rect', serialize_message(left_msg), timestamp)

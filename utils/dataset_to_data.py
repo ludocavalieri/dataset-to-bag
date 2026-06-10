@@ -57,7 +57,7 @@ def llh_to_enu(lat, lon, h, ref_lat, ref_lon, ref_h):
 # ==========================================================
 #                    DATA PROCESSING
 # ==========================================================
-def convert_dataset_to_data(dataset_root):
+def convert_dataset_to_data(dataset_root, rgb=False):
     # -------------------------------------------------------
     #                    INITIALIZATION
     # -------------------------------------------------------
@@ -175,7 +175,7 @@ def convert_dataset_to_data(dataset_root):
         raise RuntimeError("[ERROR] No stereo images found.")
 
     # Get image size
-    sample = cv2.imread(os.path.join(image_folder, left_files[0]), 0)
+    sample = cv2.imread(os.path.join(image_folder, left_files[0]), cv2.IMREAD_GRAYSCALE)
     h, w = sample.shape
     image_size = (w, h)
 
@@ -215,8 +215,9 @@ def convert_dataset_to_data(dataset_root):
     # Process images
     for lf, rf in zip(left_files, right_files):
 
-        img_l = cv2.imread(os.path.join(image_folder, lf), 0)
-        img_r = cv2.imread(os.path.join(image_folder, rf), 0)
+        read_flag = cv2.IMREAD_COLOR if rgb else cv2.IMREAD_GRAYSCALE
+        img_l = cv2.imread(os.path.join(image_folder, lf), read_flag)
+        img_r = cv2.imread(os.path.join(image_folder, rf), read_flag)
 
         rect_l = cv2.remap(img_l, left_map1, left_map2, cv2.INTER_LINEAR)
         rect_r = cv2.remap(img_r, right_map1, right_map2, cv2.INTER_LINEAR)
